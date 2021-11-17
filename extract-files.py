@@ -1,3 +1,4 @@
+import argparse
 import os
 import gzip
 import shutil
@@ -16,24 +17,17 @@ def get_files_paths(dir_path: str):
     return files_paths
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--month", "-m")
+args = parser.parse_args()
+month = args.month
 
-
-# files_to_extract = get_files_paths('/home/tardis-data')
-
-
-files_to_extract = [
-    '/home/tardis-data/deribit_options_chain_2021-11-01_OPTIONS.csv.gz',
-]
+files_to_extract = get_files_paths(f'/home/tardis-data/{month}')
 
 for i, filepath in enumerate(files_to_extract):
     with gzip.open(filepath, 'rb') as f_in:
-        with open(filepath.replace('.csv.gz', '.csv').replace('/home/tardis-data/', '/home/tardis-data/csv-files/'), 'wb') as f_out:
+        extraction_path = filepath.replace('.csv.gz', '.csv')
+        with open(extraction_path, 'wb') as f_out:
             shutil.copyfileobj(f_in, f_out)
         print(f'{i} - done {filepath}')
     os.remove(filepath)
-
-
-# for i, filepath in enumerate(file_paths):
-#     for n in extracted_files_set:
-#         if n in filepath:
-#             os.remove(filepath)

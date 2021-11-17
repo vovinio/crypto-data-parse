@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from pymongo import MongoClient, InsertOne
 from pymongo.errors import BulkWriteError, AutoReconnect
@@ -26,15 +26,16 @@ async def replay():
 
 
 
-mongo_client_data = MongoClient('mongodb://{}:{}@88.99.252.172:27017'.format('moonrock', '!8478xhgaxBiz35'))
-db_options_chain = mongo_client_data['knight-fund']['options-chain']
-
-
-docs = db_options_chain.find({
-  'event_time': {'$lte': datetime.fromtimestamp(1635724800042000/1000000) + timedelta(seconds=5), '$gt': datetime.fromtimestamp(1635724800042000/1000000) - timedelta(seconds=5)}, 'symbol': 'BTC-26NOV21-52000-P'
-})
-for doc in docs:
-  print(doc)
+# mongo_client_data = MongoClient('mongodb://{}:{}@88.99.252.172:27017'.format('moonrock', '!8478xhgaxBiz35'))
+# db_options_chain = mongo_client_data['knight-fund']['options-chain']
+#
+#
+# docs = db_options_chain.find({
+#   'event_time': {'$lte': datetime.fromtimestamp(1635724800042000/1000000) + timedelta(seconds=5), '$gt': datetime.fromtimestamp(1635724800042000/1000000) - timedelta(seconds=5)}, 'symbol': 'BTC-26NOV21-52000-P'
+# })
+# for doc in docs:
+#   print(doc)
 
 print(datetime.fromtimestamp(1635724803544/1000))
+print(datetime.fromtimestamp(1635724803544/1000, tz=timezone.utc))
 print(datetime.fromtimestamp(1635724803554000/1000000))

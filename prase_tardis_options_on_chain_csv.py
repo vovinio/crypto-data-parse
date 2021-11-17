@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from io import StringIO
 from typing import Union, Optional
@@ -14,12 +14,17 @@ class Coin(str, Enum):
     eth: str = 'ETH'
 
 
-class DeribitCsvOptionLine(BaseModel):
-    # exchange: str
+class OptionType(str, Enum):
+    call: str = 'CALL'
+    put: str = 'PUT'
+
+
+class OptionBase(BaseModel):
     symbol: str
     event_time: datetime
     expiration_time: datetime
-    type: str
+    type: OptionType
+    coin: Coin
     strike_price: int
     open_interest: float
     last_price: Union[float, None]
@@ -29,25 +34,23 @@ class DeribitCsvOptionLine(BaseModel):
     ask_price: Union[float, None]
     ask_amount: Union[float, None]
     ask_iv: Union[float, None]
-    mark_price: float
-    mark_iv: float
-    # underlying_index: str
-    underlying_price: float
-    delta: float
-    gamma: float
-    vega: float
-    theta: float
-    rho: float
+    mark_price: Union[float, None]
+    mark_iv: Union[float, None]
+    underlying_price: Union[float, None]
+    delta: Union[float, None]
+    gamma: Union[float, None]
+    vega: Union[float, None]
+    theta: Union[float, None]
+    rho: Union[float, None]
+
+
+class OptionPoint(OptionBase):
+    pass
 
 
 class AdditionalCalculatedOptionParams(BaseModel):
-    coin: Coin
     mid_price: float
     round_udl_price: int
-
-
-class DeribitOptionLine(DeribitCsvOptionLine, AdditionalCalculatedOptionParams):
-    pass
 
 
 class DeribitOptionLineToCsv(BaseModel):
@@ -118,14 +121,22 @@ def calculate_distance_price(round_udl_price: int, strike_price: int) -> int:
     return strike_price - round_udl_price
 
 
-def parse_single_deribit_option_chain_line(data: dict) -> DeribitOptionLine:
+def parse_single_deribit_option_chain_line(data: dict) -> OptionPoint:
     for key, value in data.items():
         if value == '':
-            data[key] = 0
-    csv_option_line = DeribitCsvOptionLine(
-        exchange=data['exchange'],
+            data[key] = None
+    option_type = OptionType(data['type'].upper())
+    coin = Coin(data['symbol'].split('-')[0])
+    event_time = datetime.fromtimestamp(
+        int(data['timestamp'])/DIVIDER_FROM_MICROSECONDS_TO_SECONDS, tz=timezone.utc
+    )
+    expiration_time = datetime.fromtimestamp(
+        int(data['expiration']) / DIVIDER_FROM_MICROSECONDS_TO_SECONDS, tz=timezone.utc
+    )
+    csv_option_line = OptionPoint(
         symbol=data['symbol'],
-        type=data['type'].lower(),
+        type=option_type,
+        coin=coin,
         strike_price=data['strike_price'],
         open_interest=data['open_interest'],
         last_price=data['last_price'],
@@ -137,28 +148,23 @@ def parse_single_deribit_option_chain_line(data: dict) -> DeribitOptionLine:
         ask_iv=data['ask_iv'],
         mark_price=data['mark_price'],
         mark_iv=data['mark_iv'],
-        underlying_index=data['underlying_index'],
         underlying_price=data['underlying_price'],
         delta=data['delta'],
         gamma=data['gamma'],
         vega=data['vega'],
         theta=data['theta'],
         rho=data['rho'],
-        event_time=datetime.fromtimestamp(
-            int(data['timestamp'])/DIVIDER_FROM_MICROSECONDS_TO_SECONDS
-        ),
-        expiration_time=datetime.fromtimestamp(
-            int(data['expiration'])/DIVIDER_FROM_MICROSECONDS_TO_SECONDS
-        ),
+        event_time=event_time,
+        expiration_time=expiration_time,
     )
-    coin = Coin(csv_option_line.symbol.split('-')[0])
-    return DeribitOptionLine(
-        **csv_option_line.dict(),
-        coin=coin,
-        mid_price=calculate_mid_price(
-            bid_price=csv_option_line.bid_price, ask_price=csv_option_line.ask_price
-        ),
-        round_udl_price=calculate_round_udl_price_by_coin(
-            coin=coin, underlying_price=csv_option_line.underlying_price
-        ),
-    )
+    return csv_option_line
+    # return DeribitOptionLine(
+    #     **csv_option_line.dict(),
+    #     coin=coin,
+    #     mid_price=calculate_mid_price(
+    #         bid_price=csv_option_line.bid_price, ask_price=csv_option_line.ask_price
+    #     ),
+    #     round_udl_price=calculate_round_udl_price_by_coin(
+    #         coin=coin, underlying_price=csv_option_line.underlying_price
+    #     ),
+    # )

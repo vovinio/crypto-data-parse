@@ -43,8 +43,9 @@ def upload_tardis_option_chain_csv_to_db(filepath: str):
     with open(filepath, 'r') as csv_file:
         for line in csv.DictReader(csv_file):
             deribit_point = parse_single_deribit_option_chain_line(line)
+            data_point_for_upload = {k: v for k, v in deribit_point.dict().items() if v is not None}
             upload_list.append(
-                InsertOne(deribit_point.dict())
+                InsertOne(data_point_for_upload)
             )
             if len(upload_list) >= upload_len_size:
                 total_uploaded += len(upload_list)
