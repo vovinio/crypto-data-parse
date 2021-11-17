@@ -1,7 +1,9 @@
+import os
 import sys
 import time
 import logging
 import csv
+import argparse
 
 from pymongo import MongoClient, InsertOne
 from pymongo.errors import BulkWriteError, AutoReconnect
@@ -34,14 +36,13 @@ def perform_bulk_operations(db, bulk_operations_list):
         db.bulk_write(bulk_operations_list)
 
 
-def parse_tardis_option_chain_csv(filepath: str):
+def upload_tardis_option_chain_csv_to_db(filepath: str):
     upload_list = []
     upload_len_size = 100000
     total_uploaded = 0
     with open(filepath, 'r') as csv_file:
         for line in csv.DictReader(csv_file):
             deribit_point = parse_single_deribit_option_chain_line(line)
-            print(deribit_point.dict())
             upload_list.append(
                 InsertOne(deribit_point.dict())
             )
@@ -57,4 +58,37 @@ def parse_tardis_option_chain_csv(filepath: str):
     )
 
 
-parse_tardis_option_chain_csv('/home/tardis-data/csv-files/deribit_options_chain_2021-07-26_OPTIONS.csv')
+def get_files_paths(dir_path: str):
+    """
+    Getting all the file paths of a specific file type from a given path.
+    :param dir_path: path to dir get all nested files from
+    :return: list of file paths
+    """
+    files_paths = []
+    for (dir_path, dir_names, file_names) in os.walk(dir_path):
+        for filename in file_names:
+            files_paths.append(os.path.join(dir_path, filename))
+    return files_paths
+
+
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--month", "-m", help="month")
+# args = parser.parse_args()
+# month = args.month
+
+# print(f'uploading month {month}')
+# file_paths = get_files_paths('/home/tardis-data/csv-files/')
+# for i, filepath in enumerate(file_paths):
+#     if f'2021-{month}-' not in filepath:
+#         continue
+#     upload_tardis_option_chain_csv_to_db(filepath)
+#     print(f'{i} - done file {filepath}')
+
+
+# more_file_paths = get_files_paths('/home/tardis-data/csv-files/')
+# more_file_paths = [f for f in more_file_paths if f not in file_paths]
+# for i, filepath in enumerate(more_file_paths):
+#     if f'2021-{month}-' not in filepath:
+#         continue
+#     upload_tardis_option_chain_csv_to_db(filepath)
+#     print(f'{i} - done file {filepath}')

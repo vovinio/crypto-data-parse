@@ -1,8 +1,9 @@
 import csv
 from datetime import datetime
 from enum import Enum
-from typing import Union
-from pydantic import BaseModel
+from io import StringIO
+from typing import Union, Optional
+from pydantic import BaseModel, validator
 
 
 DIVIDER_FROM_MICROSECONDS_TO_SECONDS = 1000000
@@ -14,7 +15,7 @@ class Coin(str, Enum):
 
 
 class DeribitCsvOptionLine(BaseModel):
-    exchange: str
+    # exchange: str
     symbol: str
     event_time: datetime
     expiration_time: datetime
@@ -30,7 +31,7 @@ class DeribitCsvOptionLine(BaseModel):
     ask_iv: Union[float, None]
     mark_price: float
     mark_iv: float
-    underlying_index: str
+    # underlying_index: str
     underlying_price: float
     delta: float
     gamma: float
@@ -49,23 +50,72 @@ class DeribitOptionLine(DeribitCsvOptionLine, AdditionalCalculatedOptionParams):
     pass
 
 
-def calculate_round_udl_price(coin: Coin, underlying_price: float) -> int:
+class DeribitOptionLineToCsv(BaseModel):
+    event_time: datetime
+    expiration_time: datetime
+
+    date: str
+    year: int
+    month: int
+    day: int
+    hour_min: str
+
+    underlying_price: float
+
+    symbol: str
+    expiration: str
+    tte: str
+    tte_days: int
+    strike_price: int
+
+    last_price: Union[float, None]
+    mark_price: float
+    mark_price_usd: float
+    bid_price: Union[float, None]
+    ask_price: Union[float, None]
+    bid_iv: Union[float, None]
+    ask_iv: Union[float, None]
+    mark_iv: float
+
+    delta: float
+    gamma: float
+    vega: float
+    theta: float
+    rho: float
+
+    open_interest: float
+    ask_amount: Union[float, None]
+    bid_amount: Union[float, None]
+
+    # @validator('expiration_time')
+    # def verify_expiration_time(cls, value, values):
+    #     if value:
+    #         values['event_time'] = values['event_time'].strftime("%d%m%Y%H%M")
+    #         return value.strftime("%d%m%y")
+
+
+def calculate_round_unit(round_size: int, unit_to_round: float) -> int:
+    if unit_to_round % round_size >= round_size/2:
+        return int(unit_to_round + (round_size - unit_to_round % round_size))
+    else:
+        return int(unit_to_round - unit_to_round % round_size)
+
+
+def calculate_round_udl_price_by_coin(coin: Coin, underlying_price: float) -> int:
     if coin == Coin.btc:
-        if underlying_price % 100 >= 50:
-            return int(underlying_price + (100 - underlying_price % 100))
-        else:
-            return int(underlying_price - underlying_price % 100)
+        return calculate_round_unit(round_size=100, unit_to_round=underlying_price)
     elif coin == Coin.eth:
-        if underlying_price % 10 >= 5:
-            return int(underlying_price + (10 - underlying_price % 10))
-        else:
-            return int(underlying_price - underlying_price % 10)
+        return calculate_round_unit(round_size=10, unit_to_round=underlying_price)
 
 
 def calculate_mid_price(bid_price: float, ask_price: float) -> float:
     if not bid_price or not ask_price:
         return 0
     return (bid_price + ask_price) / 2
+
+
+def calculate_distance_price(round_udl_price: int, strike_price: int) -> int:
+    return strike_price - round_udl_price
 
 
 def parse_single_deribit_option_chain_line(data: dict) -> DeribitOptionLine:
@@ -108,7 +158,7 @@ def parse_single_deribit_option_chain_line(data: dict) -> DeribitOptionLine:
         mid_price=calculate_mid_price(
             bid_price=csv_option_line.bid_price, ask_price=csv_option_line.ask_price
         ),
-        round_udl_price=calculate_round_udl_price(
+        round_udl_price=calculate_round_udl_price_by_coin(
             coin=coin, underlying_price=csv_option_line.underlying_price
         ),
     )
